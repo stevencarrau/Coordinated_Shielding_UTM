@@ -76,7 +76,7 @@ hist = cell(agents,1);
 time = 1;
 for q = 1:agents;hist{q}=s{q};end
 while looper~= 0
-    a = Coordinate(Q,s);
+    a = Coordinate(Q,s,Coord,1);
     time = time+1;
     for q = 1:agents
         s{q} = randsample(1:n,1,true,Trans{s{q}}(a{q},:));
@@ -178,12 +178,11 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
     end
     cnt = 1;
     
-    Policy = ones(n,1);
     delta = 1;
     alpha = 0.5;
     gamma = 0.9;
     epsilon = 0.25;
-    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-6*n
+    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-3*n
         s = s0;
         Q1 = Q;
         while ismember(s,Goal) ~= 1
@@ -204,14 +203,29 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
     
 end
 
-function a = Coordinate(Q,s,flag)
+function a = Coordinate(Q,s,Coord,flag)
     % Co-ordinate switch - flag
     agents = size(Q,1);
     a = cell(agents,1);
+    co_ord_graph = a;
     n = size(s,1);
     if flag == 0 % No co-ordination at all
         for q = 1:agents
             [~,a{q}] = min(Q{q}{s{q}});
-        end        
+        end
+    else
+        for q = 1:agents
+            air_loc = cell2mat(s);
+            air_loc(q) = -1; %Don't need to co-ordinate with ourselves
+            agent_idx = 1:agents;
+            co_ord_graph{q} = agent_idx(ismember(air_loc,Coord{q}));
+        end
+        for q = 1:agents
+            if isempty(co_ord_graph{q})
+                [~,a{q}] = min(Q{q}{s{q}});
+            else
+                
+            end
+        end
     end
 end
