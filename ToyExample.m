@@ -1,7 +1,7 @@
 close all
 % Grid states
 rng(1)
-n = 8;
+n = 9;
 radius = 2;
 %States = rand(n,2)*4;
 
@@ -13,7 +13,8 @@ States = [0 0;
           1.3 -0.2;
           4 3;
           2.8 3.4;
-          3.1 1.8
+          3.1 1.8;
+          2 4
           ];
 Edges = cell(n,1);
 Rew = ones(n)*99;
@@ -52,7 +53,7 @@ end
 
 
 %% Aircraft - agents
-agents = 2;
+agents = 3;
 
 s = cell(agents,1);
 s0 = s;
@@ -60,11 +61,13 @@ T = s;
 A = s;
 A{1} = [1 6];
 A{2} = [8 5];
+A{3} = [9 8];
 Rew_Agent = s;
 Q = s;
 Path = Q;
 
 %% Offline
+
 for q = 1:agents
    s0{q} = A{q}(1);
    T{q} = A{q}(2);
@@ -73,7 +76,7 @@ for q = 1:agents
    Q{q} = MDP_VI(Trans,Rew_Agent{q},A{q}(1),A{q}(2));
    disp("Calculated route")
 end
-% load('PreCalcQ.mat');
+% load('PreCalcQ2.mat');
 
 %% Online
 s = s0;
@@ -110,9 +113,11 @@ end
 
 h_path1 = plot_path(States(hist_Path{1,1},:),'r');
 h_path2 = plot_path(States(hist_Path{2,1},:),'b');
+h_path3 = plot_path(States(hist_Path{3,1},:),'k');
 hold on
 h_agent1 = plot(States(A{1}(1),1),States(A{1}(1),2),'rs','MarkerFaceColor','r','MarkerSize',18);
 h_agent2 = plot(States(A{2}(1),1),States(A{2}(1),2),'bs','MarkerFaceColor','b','MarkerSize',18);
+h_agent3 = plot(States(A{2}(1),1),States(A{2}(1),2),'ks','MarkerFaceColor','k','MarkerSize',18);
 hold off
 
 
@@ -132,15 +137,13 @@ for i = 1:size(hist,2)
     drawnow
     F = [F getframe(gcf)];
     set(h_path1,'XData',States(hist_Path{1,i},1),'YData',States(hist_Path{1,i},2))
+    set(h_path2,'XData',States(hist_Path{2,i},1),'YData',States(hist_Path{2,i},2))
+    set(h_path3,'XData',States(hist_Path{3,i},1),'YData',States(hist_Path{3,i},2))
     drawnow
     F = [F getframe(gcf)];
     set(h_agent1,'XData',States(hist{1,i},1),'YData',States(hist{1,i},2));
-    drawnow
-    F = [F getframe(gcf)];
-    set(h_path2,'XData',States(hist_Path{2,i},1),'YData',States(hist_Path{2,i},2))
-    drawnow
-    F = [F getframe(gcf)];
     set(h_agent2,'XData',States(hist{2,i},1),'YData',States(hist{2,i},2));
+    set(h_agent3,'XData',States(hist{3,i},1),'YData',States(hist{3,i},2));
     drawnow
     F = [F getframe(gcf)];
 end
@@ -219,11 +222,13 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
     alpha = 0.75;
     gamma = 0.95;
     epsilon = 0.5;
-    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-4*n
+    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-5*n
         s = s0;
         Q1 = Q;
-%         while ismember(s,Goal) ~= 1
-        for k_z = 1:25
+        h_z = 0;
+        while ismember(s,Goal) ~= 1 || h_z < 25
+%         for k_z = 1:25
+            h_z = h_z+1;
             if rand(1)<epsilon
                 a_t = randsample(1:size(Trans{s},1),1);
             else
@@ -337,18 +342,28 @@ function [a,sts] = min_DBN(Q,s,graph,Edges)
         for q = 1:agents
             % Find colliding actions
             Ext_Edges = Edges{s{q}};
-            Ext_Edges(Ext_Edges==s{q})=-1; 
+            Ext_Edges(Ext_Edges==s{q})=-1;
+            air_loc = cell2mat(s');
+            air_loc(q) = -1;
+            [~,act_idx] = ismember(air_loc,Edges{s{q}});
+            if q==1
+                comp_Q(:,act_idx(act_idx~=0),:) = comp_Q(:,act_idx(act_idx~=0),:) + 100;
+            elseif q==2
+                comp_Q(act_idx(act_idx~=0),:,:) = comp_Q(act_idx(act_idx~=0),:,:) + 100;
+            elseif q==3
+                comp_Q(:,:,act_idx(act_idx~=0)) = comp_Q(:,:,act_idx(act_idx~=0)) + 100;
+            end
             for m = 1:length(Ext_Edges)
                 rem_agents = 1:agents;
                 rem_agents(q) = [];
                 for q_z = rem_agents
                     [~,ind_i] = ismember(Ext_Edges(m),Edges{s{q_z}});
                     if q==1 && q_z == 2
-                        comp_Q(ind_i,m,:) = comp_Q(ind_i,m,:) + 100;
+                        comp_Q(m,ind_i(ind_i~=0),:) = comp_Q(m,ind_i(ind_i~=0),:) + 100;
                     elseif q==1 && q_z == 3
-                        comp_Q(ind_i,:,m) = comp_Q(ind_i,:,m) + 100;
+                        comp_Q(m,:,ind_i(ind_i~=0)) = comp_Q(m,:,ind_i(ind_i~=0)) + 100;
                     elseif q==2 && q_z == 3
-                        comp_Q(:,ind_i,m) = comp_Q(:,ind_i,m) + 100;
+                        comp_Q(ind_i(ind_i~=0),:,m) = comp_Q(ind_i(ind_i~=0),:,m) + 100;
                     end
                 end
             end
