@@ -117,27 +117,46 @@ hold off
 
 
 %
-F(1) = getframe(gcf);
+F = [];
 for i = 1:size(hist,2)
     for z = 1:n
         set(h_circ{n},'FaceColor','g');
     end
+    drawnow
+    F = [F getframe(gcf)];
     if isempty(hist_sts{i})~=1
         for k = hist_sts{i}   
             set(h_circ{k},'FaceColor','r');
         end
     end
     drawnow
-    set(h_agent1,'XData',States(hist{1,i},1),'YData',States(hist{1,i},2));
-    set(h_agent2,'XData',States(hist{2,i},1),'YData',States(hist{2,i},2));
+    F = [F getframe(gcf)];
     set(h_path1,'XData',States(hist_Path{1,i},1),'YData',States(hist_Path{1,i},2))
+    drawnow
+    F = [F getframe(gcf)];
+    set(h_agent1,'XData',States(hist{1,i},1),'YData',States(hist{1,i},2));
+    drawnow
+    F = [F getframe(gcf)];
     set(h_path2,'XData',States(hist_Path{2,i},1),'YData',States(hist_Path{2,i},2))
     drawnow
-    
-    F(i) = getframe(gcf);
+    F = [F getframe(gcf)];
+    set(h_agent2,'XData',States(hist{2,i},1),'YData',States(hist{2,i},2));
+    drawnow
+    F = [F getframe(gcf)];
 end
-writerObj = VideoWriter('2Agents.avi');
-writerObj.FrameRate = 0.2;
+writerObj = VideoWriter('3Agents.avi');
+writerObj.FrameRate = 1;
+
+% open the video writer
+open(writerObj);
+% write the frames to the video
+for i=1:length(F)
+    % convert the image to a frame
+    frame = F(i) ;    
+    writeVideo(writerObj, frame);
+end
+% close the writer object
+close(writerObj);
 
 figure;
 axis([-1 5 -1 5])
@@ -197,14 +216,14 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
     cnt = 1;
     
     delta = 1;
-    alpha = 0.5;
+    alpha = 0.75;
     gamma = 0.95;
-    epsilon = 0.4;
-    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-5*n
+    epsilon = 0.5;
+    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-4*n
         s = s0;
         Q1 = Q;
 %         while ismember(s,Goal) ~= 1
-        for k_z = 1:15
+        for k_z = 1:25
             if rand(1)<epsilon
                 a_t = randsample(1:size(Trans{s},1),1);
             else
