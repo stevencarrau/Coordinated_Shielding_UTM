@@ -24,6 +24,9 @@ for i = 1:size(States,1)
         if norm(States(i,:)-States(j,:))<radius
            Edges{i} = [Edges{i} j];
            Rew(i,j) = norm(States(i,:)-States(j,:));
+           if i==j
+               Rew(i,j) = 1.5;
+           end
         end
     end
 end
@@ -42,10 +45,9 @@ for i = 1:n
             Act_array(j,Edges{i}(j)) = 0.9;
             Act_array(j,i) = 0.1;
         end
-        Coord{i} = [Coord{i} Edges{j}];
+        Coord{i} = unique([Coord{i} Edges{Edges{i}(j)}]);
     end
     Trans{i} = Act_array;
-    Coord{i} = unique(Coord{i});
 end
 
 
@@ -54,6 +56,7 @@ agents = 2;
 
 s = cell(agents,1);
 s0 = s;
+T = s;
 A = s;
 A{1} = [1 6];
 A{2} = [8 5];
@@ -64,72 +67,77 @@ Path = Q;
 %% Offline
 for q = 1:agents
    s0{q} = A{q}(1);
+   T{q} = A{q}(2);
    Rew_Agent{q} = Rew;
-   Rew_Agent{q}(:,A{q}(2)) = Rew_Agent{q}(:,A{q}(2)) - 10;
+   Rew_Agent{q}(:,T{q}) = Rew_Agent{q}(:,T{q}) - 100;
    Q{q} = MDP_VI(Trans,Rew_Agent{q},A{q}(1),A{q}(2));
+   disp("Calculated route")
 end
+% load('PreCalcQ.mat');
 
 %% Online
-looper = 1;
 s = s0;
 hist = cell(agents,1);
+hist_sts = cell(1,1);
+hist_Path = cell(agents,1);
 time = 1;
-for q = 1:agents;hist{q}=s{q};end
-while looper~= 0
-    a = Coordinate(Q,s,Coord,1);
+for q = 1:agents
+    Path{q}=s{q};
+    hist{q}=s{q};
+    hist_sts{1} = [];
+    hist_Path{q} = [s{q} Path2Go(q,T{q},Q,Edges,s{q})];
+end
+while isequal(s,T)~=1
+    [a,sts] = Coordinate(Q,s,Coord,Edges,1);
     time = time+1;
     for q = 1:agents
         s{q} = randsample(1:n,1,true,Trans{s{q}}(a{q},:));
+        Path{q} = [Path{q} s{q}];
         hist{q,time} = s{q};
-    end
-    looper = 1;
-    for q = 1:agents
-        looper = looper && s{q}==A{q}(2);
+        hist_sts{1,time} = sts;
+        hist_Path{q,time} = [Path{q} Path2Go(q,T{q},Q,Edges,s{q})];
     end
 end
 
 
 %% For Plotting
-s = s0;
-for q = 1:agents
-    s{q} = A{q}(1);
-    Path{q} = s{q};
-    while s{q}~=A{q}(2)
-        [~,a] = min(Q{q}{s{q}});
-        s{q} = Edges{s{q}}(a);
-        Path{q} = [Path{q} s{q}];
-    end
-end
-
 
 plot(States(:,1),States(:,2),'*')
 axis([-1 5 -1 5])
 for i = 1:size(States,1)
-   circle(States(i,1),States(i,2),1);
+   h_circ{i} = circle(States(i,1),States(i,2),1);
 end
 
-h_path1 = plot_path(States(Path{1},:),'r');
-h_path2 = plot_path(States(Path{2},:),'b');
+h_path1 = plot_path(States(hist_Path{1,1},:),'r');
+h_path2 = plot_path(States(hist_Path{2,1},:),'b');
 hold on
-h_agent1 = plot(States(A{1}(1),1),States(A{1}(1),2),'rs','MarkerFaceColor','r');
-h_agent2 = plot(States(A{2}(1),1),States(A{2}(1),2),'bs','MarkerFaceColor','b');
+h_agent1 = plot(States(A{1}(1),1),States(A{1}(1),2),'rs','MarkerFaceColor','r','MarkerSize',18);
+h_agent2 = plot(States(A{2}(1),1),States(A{2}(1),2),'bs','MarkerFaceColor','b','MarkerSize',18);
 hold off
 
 
 %
-looper = 1;
-s = s0;
-while looper~= 0
-    
-    set(h_agent1,'XData',States(s{1},1),'YData',States(s{1},2));
-    set(h_agent2,'XData',States(s{2},1),'YData',States(s{2},2));
-    drawnow
-    looper = 1;
-    for q = 1:agents
-        looper = looper && s{q}==A{q}(2);
+F(1) = getframe(gcf);
+for i = 1:size(hist,2)
+    for z = 1:n
+        set(h_circ{n},'FaceColor','g');
     end
+    if isempty(hist_sts{i})~=1
+        for k = hist_sts{i}   
+            set(h_circ{k},'FaceColor','r');
+        end
+    end
+    drawnow
+    set(h_agent1,'XData',States(hist{1,i},1),'YData',States(hist{1,i},2));
+    set(h_agent2,'XData',States(hist{2,i},1),'YData',States(hist{2,i},2));
+    set(h_path1,'XData',States(hist_Path{1,i},1),'YData',States(hist_Path{1,i},2))
+    set(h_path2,'XData',States(hist_Path{2,i},1),'YData',States(hist_Path{2,i},2))
+    drawnow
+    
+    F(i) = getframe(gcf);
 end
-
+writerObj = VideoWriter('2Agents.avi');
+writerObj.FrameRate = 0.2;
 
 figure;
 axis([-1 5 -1 5])
@@ -140,6 +148,16 @@ for i = 1:n
     end
 end
 
+
+function Path = Path2Go(agent,T,Q,Edges,s)
+    s1 = s;
+    Path = [];
+    while s1~=T
+      [~,a] = min(Q{agent}{s1});
+      s1 = Edges{s1}(a);
+      Path = [Path s1];
+    end
+end
 
 
 function h = circle(x,y,r)
@@ -180,12 +198,13 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
     
     delta = 1;
     alpha = 0.5;
-    gamma = 0.9;
-    epsilon = 0.25;
-    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-3*n
+    gamma = 0.95;
+    epsilon = 0.4;
+    while sum(abs(cell2mat(cellfun(@minus,Q1,Q,'Un',0)))) > 1e-5*n
         s = s0;
         Q1 = Q;
-        while ismember(s,Goal) ~= 1
+%         while ismember(s,Goal) ~= 1
+        for k_z = 1:15
             if rand(1)<epsilon
                 a_t = randsample(1:size(Trans{s},1),1);
             else
@@ -203,9 +222,10 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
     
 end
 
-function a = Coordinate(Q,s,Coord,flag)
+function [a,sts] = Coordinate(Q,s,Coord,Edges,flag)
     % Co-ordinate switch - flag
     agents = size(Q,1);
+    sts = [];
     a = cell(agents,1);
     co_ord_graph = a;
     n = size(s,1);
@@ -218,14 +238,107 @@ function a = Coordinate(Q,s,Coord,flag)
             air_loc = cell2mat(s);
             air_loc(q) = -1; %Don't need to co-ordinate with ourselves
             agent_idx = 1:agents;
-            co_ord_graph{q} = agent_idx(ismember(air_loc,Coord{q}));
+            co_ord_graph{q} = agent_idx(ismember(air_loc,Coord{s{q}}));
         end
-        for q = 1:agents
-            if isempty(co_ord_graph{q})
+        graph_space = unique(cell2mat(co_ord_graph'));
+        if isempty(graph_space)
+            % No co-ordination required
+            for q = 1:agents
                 [~,a{q}] = min(Q{q}{s{q}});
-            else
-                
+            end
+        else
+            % Co-ordinated
+            % Assign leftovers (not co-ordinating with the rest)
+            leftovers = 1:n;
+            leftovers(ismember(leftovers,graph_space)) = [];
+            for w = leftovers
+               [~,a{w}] = min(Q{w}{s{w}}); 
+            end
+            
+            % DBN framework
+            new_Q = cell(size(graph_space,2),1);
+            new_s = new_Q;
+            new_graph = new_Q;
+            for k = 1:length(graph_space)
+               new_Q{k} = Q{graph_space(k)}{s{graph_space(k)}};
+               new_s{k} = s{graph_space(k)};
+               new_graph{k} = Coord{graph_space(k)};
+            end
+            [a_set,sts] = min_DBN(new_Q,new_s,new_graph,Edges);
+            for k = 1:length(graph_space)
+                a{graph_space(k)} = a_set(k);
             end
         end
     end
+end
+
+function [a,sts] = min_DBN(Q,s,graph,Edges)
+    agents = size(s,1);
+    sts = [];
+    % Only 2 or 3 agent co-ordination for now
+    if agents==2
+        a =zeros(2,1);
+       [Qx,Qy] = meshgrid(Q{1},Q{2}); 
+        comp_Q = Qx+Qy;
+        for q = 1:agents
+            % Remove occupied operators
+            air_loc = cell2mat(s');
+            air_loc(q) = -1;
+            [~,act_idx] = ismember(air_loc,Edges{s{q}});
+            if q==1
+                comp_Q(:,act_idx(act_idx~=0)) = comp_Q(:,act_idx(act_idx~=0)) + 100;
+            elseif q==2
+                comp_Q(act_idx(act_idx~=0),:) = comp_Q(act_idx(act_idx~=0),:) + 100;
+            end
+            % Find colliding actions
+            Ext_Edges = Edges{s{q}};
+            Ext_Edges(Ext_Edges==s{q})=-1; 
+            for m = 1:length(Ext_Edges)
+                rem_agents = 1:agents;
+                rem_agents(q) = [];
+                for q_z = rem_agents
+                    if ismember(Ext_Edges(m),Edges{s{q_z}})
+                        [~,ind_i] = ismember(Ext_Edges(m),Edges{s{q_z}});
+                        if q==1
+                            comp_Q(ind_i,m) = comp_Q(ind_i,m) + 100;
+                        elseif q==2
+                            comp_Q(m,ind_i) = comp_Q(m,ind_i) + 100;
+                        end
+                        sts = [sts Ext_Edges(m)];
+                    end
+                end
+            end
+        end
+        [~,min_idx] = min(comp_Q(:));
+        [a(2),a(1)] = ind2sub(size(comp_Q),min_idx);
+    elseif agents==3
+         a =zeros(3,1);
+        [Qx,Qy,Qz] = meshgrid(Q{1},Q{2},Q{3});
+        comp_Q = Qx+Qy+Qz;
+        for q = 1:agents
+            % Find colliding actions
+            Ext_Edges = Edges{s{q}};
+            Ext_Edges(Ext_Edges==s{q})=-1; 
+            for m = 1:length(Ext_Edges)
+                rem_agents = 1:agents;
+                rem_agents(q) = [];
+                for q_z = rem_agents
+                    [~,ind_i] = ismember(Ext_Edges(m),Edges{s{q_z}});
+                    if q==1 && q_z == 2
+                        comp_Q(ind_i,m,:) = comp_Q(ind_i,m,:) + 100;
+                    elseif q==1 && q_z == 3
+                        comp_Q(ind_i,:,m) = comp_Q(ind_i,:,m) + 100;
+                    elseif q==2 && q_z == 3
+                        comp_Q(:,ind_i,m) = comp_Q(:,ind_i,m) + 100;
+                    end
+                end
+            end
+        end
+        [~,min_idx] = min(comp_Q(:));
+        [a(2),a(1),a(3)] = ind2sub(size(comp_Q),min_idx);
+    else
+        error("Oofta");    
+    end
+    sts = unique(sts);
+
 end
