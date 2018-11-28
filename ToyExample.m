@@ -76,7 +76,7 @@ for q = 1:agents
    Q{q} = MDP_VI(Trans,Rew_Agent{q},A{q}(1),A{q}(2));
    disp("Calculated route")
 end
-% load('PreCalcQ2.mat');
+% load('PreCalcQ3.mat');
 
 %% Online
 s = s0;
@@ -111,21 +111,23 @@ for i = 1:size(States,1)
    h_circ{i} = circle(States(i,1),States(i,2),1);
 end
 
-h_path1 = plot_path(States(hist_Path{1,1},:),'r');
-h_path2 = plot_path(States(hist_Path{2,1},:),'b');
-h_path3 = plot_path(States(hist_Path{3,1},:),'k');
 hold on
 h_agent1 = plot(States(A{1}(1),1),States(A{1}(1),2),'rs','MarkerFaceColor','r','MarkerSize',18);
 h_agent2 = plot(States(A{2}(1),1),States(A{2}(1),2),'bs','MarkerFaceColor','b','MarkerSize',18);
-h_agent3 = plot(States(A{2}(1),1),States(A{2}(1),2),'ks','MarkerFaceColor','k','MarkerSize',18);
+h_agent3 = plot(States(A{3}(1),1),States(A{3}(1),2),'ks','MarkerFaceColor','k','MarkerSize',18);
 hold off
+
+h_path1 = plot_path(States(hist_Path{1,1},:),'r');
+h_path2 = plot_path(States(hist_Path{2,1},:),'b');
+h_path3 = plot_path(States(hist_Path{3,1},:),'k');
+
 
 
 %
 F = [];
 for i = 1:size(hist,2)
     for z = 1:n
-        set(h_circ{n},'FaceColor','g');
+        set(h_circ{z},'FaceColor','g');
     end
     drawnow
     F = [F getframe(gcf)];
@@ -147,7 +149,7 @@ for i = 1:size(hist,2)
     drawnow
     F = [F getframe(gcf)];
 end
-writerObj = VideoWriter('3Agents.avi');
+writerObj = VideoWriter('XAgents.avi');
 writerObj.FrameRate = 1;
 
 % open the video writer
@@ -226,7 +228,7 @@ function [Q] = MDP_VI(Trans,Rew,s0,Goal)
         s = s0;
         Q1 = Q;
         h_z = 0;
-        while ismember(s,Goal) ~= 1 || h_z < 25
+        while ismember(s,Goal) ~= 1 || h_z < 15
 %         for k_z = 1:25
             h_z = h_z+1;
             if rand(1)<epsilon
