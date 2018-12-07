@@ -73,10 +73,10 @@ for q = 1:agents
    T{q} = A{q}(2);
    Rew_Agent{q} = Rew;
    Rew_Agent{q}(:,T{q}) = Rew_Agent{q}(:,T{q}) - 100;
-   Q{q} = MDP_VI(Trans,Rew_Agent{q},A{q}(1),A{q}(2));
+%    Q{q} = MDP_VI(Trans,Rew_Agent{q},A{q}(1),A{q}(2));
    disp("Calculated route")
 end
-% load('PreCalcQ3.mat');
+load('PreCalcQ3.mat');
 
 %% Online
 s = s0;
