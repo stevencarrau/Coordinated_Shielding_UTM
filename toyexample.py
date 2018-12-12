@@ -15,7 +15,7 @@ class UTM_Network():
         self.actlist = set()
         id_nos = 0
         for loc in tower_locs:
-            self.states.append(Tower(loc, 1, 2, id_nos))
+            self.states.append(Tower(loc, 1, 1, id_nos))
             self.state_labels.append(id_nos)
             id_nos += 1
         for i in self.states:
@@ -70,8 +70,8 @@ class UTM_Network():
 
     def Run(self,tasks):
         while not self.UTM_Goal:
-            self.Propagate(tasks)
             self.Coordinate()
+            self.Propagate(tasks)
             self.DisplayStates()
 
     def Coordinate(self):
@@ -86,6 +86,7 @@ class UTM_Network():
             inter = set(st_dict.keys()).intersection(self.states[self.UAV[uav_id].current_state].co_ord_sector)
             index = [st_dict[x] for x in inter]
             co_ord_agents = co_ord_agents.union(index)
+        co_ord_agents = list(co_ord_agents)
         if co_ord_agents:
             Q_all = []
             Q_allvalues = []
@@ -100,27 +101,64 @@ class UTM_Network():
 
     def max_DBN(self,Q,Qa,state_locs,co_ord_agents):
         no_agents = len(co_ord_agents)
-        i=0
-        for n_a in co_ord_agents:
+        for i in range(no_agents):
             state_locs_hold = state_locs.copy()
-            state_locs_hold[n_a] = -1
-            st_dict = dict((k,i) for i,k in enumerate(state_locs_hold))
+            state_locs_hold[i] = -1
             act_s = [q[1] for q in Q[i]]
-            inter = set(st_dict.keys()).intersection(act_s)
+            st_dict = dict((k,i) for i,k in enumerate(act_s))
+            inter = set(st_dict.keys()).intersection(state_locs_hold)
             index = [st_dict[x] for x in inter]
             for i_nd in index:
-                Qa[i][i_nd] -= 100
-            i+=1
-        i=0
+                Qa[i][i_nd] -= 500
         if no_agents is 2:
-            Qx,Qy = np.meshgrid(Qa[0],Qa[1])
+            Qx,Qy = np.meshgrid(Qa[0],Qa[1],indexing='ij')
             comp_Q = Qx+Qy
-            s_acts = [q[1] for q in Q[i]]
-            for j in s_acts:
-                []
+            for i in range(no_agents):
+                s_acts = [(j,q[1]) for j,q in enumerate(Q[i])]
+                rem_agents = list(range(no_agents))
+                rem_agents.pop(i)
+                for j,q_j in s_acts:
+                    for k in rem_agents:
+                        s_next_acts = [k_i for k_i,q in enumerate(Q[k]) if q[1] is q_j]
+                        if i is 0:
+                            for r_i in s_next_acts:
+                                comp_Q[j,r_i] -= 500
+                        elif i is 1:
+                            for r_i in s_next_acts:
+                                comp_Q[r_i,j] -= 500
         else:
-            Qx,Qy,Qz = np.meshgrid(Qa[0],Qa[1],Qa[2])
+            Qx,Qy,Qz = np.meshgrid(Qa[0],Qa[1],Qa[2],indexing='ij')
             comp_Q = Qx + Qy + Qz
+            for i in range(no_agents):
+                s_acts = [(j,q[1]) for j,q in enumerate(Q[i])]
+                rem_agents = list(range(no_agents))
+                rem_agents.pop(i)
+                for j,q_j in s_acts:
+                    for k in rem_agents:
+                        s_next_acts = [k_i for k_i,q in enumerate(Q[k]) if q[1] is q_j]
+                        if i is 0 and k is 1:
+                            for r_i in s_next_acts:
+                                comp_Q[j,r_i,:] -= 500
+                        elif i is 0 and k is 2:
+                            for r_i in s_next_acts:
+                                comp_Q[j,:,r_i] -= 500
+                        elif i is 1 and k is 0:
+                            for r_i in s_next_acts:
+                                comp_Q[r_i,j,:] -= 500
+                        elif i is 1 and k is 2:
+                            for r_i in s_next_acts:
+                                comp_Q[:,j,r_i] -= 500
+                        elif i is 2 and k is 0:
+                            for r_i in s_next_acts:
+                                comp_Q[r_i,:, j] -= 500
+                        elif i is 2 and k is 1:
+                            for r_i in s_next_acts:
+                                comp_Q[:, r_i,j] -= 500
+        act = np.unravel_index(np.argmax(comp_Q),comp_Q.shape)
+        for act_i,agent_i,loc_i,q_i in zip(act,co_ord_agents,state_locs,Q):
+            s_acts = [ q[1] for q in q_i]
+            self.UAV[agent_i].policy[loc_i] = set([s_acts[act_i]])
+
 
 class Tower():
     def __init__(self, location, n_operators, VLOS_radius, id_no):
