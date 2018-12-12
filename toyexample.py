@@ -71,6 +71,7 @@ class UTM_Network():
     def Run(self,tasks):
         while not self.UTM_Goal:
             self.Propagate(tasks)
+            self.Coordinate()
             self.DisplayStates()
 
     def Coordinate(self):
@@ -81,15 +82,45 @@ class UTM_Network():
         for uav_id in range(self.n_agents):
             loc_copy = locations.copy()
             loc_copy[uav_id] = -1
-            st_dict = dict((k,i) for i,k in enumerate(self.states[self.UAV[uav_id.current_state]].co_ord_sector))
-            inter = st_dict.intersection(loc_copy)
+            st_dict = dict((k,i) for i,k in enumerate(loc_copy))
+            inter = set(st_dict.keys()).intersection(self.states[self.UAV[uav_id].current_state].co_ord_sector)
             index = [st_dict[x] for x in inter]
             co_ord_agents = co_ord_agents.union(index)
-        if not co_ord_agents:
-            co_ord_agents
+        if co_ord_agents:
+            Q_all = []
+            Q_allvalues = []
+            state_locs = []
+            for agent in co_ord_agents:
+                Q_a = [k for k in self.UAV[agent].Q.keys() if k[0] is self.UAV[agent].current_state]
+                Q_all.append(Q_a)
+                Q_avalues = [self.UAV[agent].Q[e] for e in Q_a]
+                Q_allvalues.append(Q_avalues)
+                state_locs.append(self.UAV[agent].current_state)
+            self.max_DBN(Q_all,Q_allvalues,state_locs,co_ord_agents)
 
-    # def DBN(self,Q):
-    #
+    def max_DBN(self,Q,Qa,state_locs,co_ord_agents):
+        no_agents = len(co_ord_agents)
+        i=0
+        for n_a in co_ord_agents:
+            state_locs_hold = state_locs.copy()
+            state_locs_hold[n_a] = -1
+            st_dict = dict((k,i) for i,k in enumerate(state_locs_hold))
+            act_s = [q[1] for q in Q[i]]
+            inter = set(st_dict.keys()).intersection(act_s)
+            index = [st_dict[x] for x in inter]
+            for i_nd in index:
+                Qa[i][i_nd] -= 100
+            i+=1
+        i=0
+        if no_agents is 2:
+            Qx,Qy = np.meshgrid(Qa[0],Qa[1])
+            comp_Q = Qx+Qy
+            s_acts = [q[1] for q in Q[i]]
+            for j in s_acts:
+                []
+        else:
+            Qx,Qy,Qz = np.meshgrid(Qa[0],Qa[1],Qa[2])
+            comp_Q = Qx + Qy + Qz
 
 class Tower():
     def __init__(self, location, n_operators, VLOS_radius, id_no):
