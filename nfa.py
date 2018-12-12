@@ -3,16 +3,16 @@ from digraph import DIGRAPH
 
 
 class NFA(object):
-    def __init__(self, states, accepting_states, alphabet, transitions=[]):
+    def __init__(self, states, alphabet, transitions=[]):
         # we need at least one state and one letter
         assert states
         # assert accepting_states
         assert alphabet
         self.states = set(states)
-        self.accepting_states = set(accepting_states)
+        #self.accepting_states = set(accepting_states)
         # print "states {}".format(self.states)
         # print "accepting states {}".format(self.accepting_states)
-        assert self.accepting_states <= self.states
+        #assert self.accepting_states <= self.states
         self.alphabet = set(alphabet)
         self.transitions = set()
         self._post_cache = dict()

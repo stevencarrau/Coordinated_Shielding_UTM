@@ -57,7 +57,7 @@ class UTM_Network():
         return flag
 
     def CalculateRoute(self, mdp, R,target):
-        return mdp.E_step_value_iteration(R,set(),set([target]))
+        return mdp.E_step_value_iteration(R,set(),set())
 
     def Propagate(self,tasks):
         for u_av in self.UAV:
@@ -74,7 +74,22 @@ class UTM_Network():
             self.DisplayStates()
 
     def Coordinate(self):
-        
+        locations = []
+        for uav in self.UAV:
+            locations.append(uav.current_state)
+        co_ord_agents = set()
+        for uav_id in range(self.n_agents):
+            loc_copy = locations.copy()
+            loc_copy[uav_id] = -1
+            st_dict = dict((k,i) for i,k in enumerate(self.states[self.UAV[uav_id.current_state]].co_ord_sector))
+            inter = st_dict.intersection(loc_copy)
+            index = [st_dict[x] for x in inter]
+            co_ord_agents = co_ord_agents.union(index)
+        if not co_ord_agents:
+            co_ord_agents
+
+    # def DBN(self,Q):
+    #
 
 class Tower():
     def __init__(self, location, n_operators, VLOS_radius, id_no):
