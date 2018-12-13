@@ -67,12 +67,32 @@ class UTM_Network():
     def DisplayStates(self):
         print([u_av.current_state for u_av in self.UAV])
 
+    def WritePolicy(self,time):
+        t_f = open("policyplan.out", "a")
+        t_f.write("\nTime: "+str(time))
+        i = 0
+        WP = "WP"
+        for uav in self.UAV:
+            t_f.write("\nkp00"+str(i)+" "+WP)
+            s = uav.current_state
+            t_f.write(str(s))
+            while s is not uav.target:
+                s_new = uav.policy[s]
+                s_new = list(s_new)[0]
+                if s_new is s:
+                    break
+                s = s_new
+                t_f.write(" "+WP+str(s))
+            i+=1
 
     def Run(self,tasks):
+        time = 0
         while not self.UTM_Goal:
             self.Coordinate()
+            self.WritePolicy(time)
             self.Propagate(tasks)
             self.DisplayStates()
+            time += 1
 
     def Coordinate(self):
         locations = []
